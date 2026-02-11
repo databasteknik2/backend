@@ -1,9 +1,11 @@
 ﻿using Backend.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using Backend.Application.Interfaces;
 
 namespace Backend.Infrastructure.Data;
 
-public class AppDbContext : DbContext
+public class AppDbContext : DbContext, IApplicationDbContext
 {
     public DbSet<Course> Courses => Set<Course>();
     public DbSet<CourseEvent> CourseEvents => Set<CourseEvent>();
@@ -11,10 +13,10 @@ public class AppDbContext : DbContext
     public DbSet<Participant> Participants => Set<Participant>();
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
 
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
-    {
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-    }
+    public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
+        => Database.BeginTransactionAsync(cancellationToken);
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
