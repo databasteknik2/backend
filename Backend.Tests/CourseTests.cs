@@ -8,13 +8,13 @@ public class CourseTests
     [Fact]
     public void Update_ShouldChangeTitleAndDescription()
     {
-        // Arrange - Skapa en kurs
+        // Arrange 
         var course = new Course("Gammal titel", "Gammal beskrivning");
 
-        // Act - Kör metoden du vill testa
+        // Act 
         course.Update("Ny titel", "Ny beskrivning");
 
-        // Assert - Kontrollera att det blev rätt
+        // Assert 
         Assert.Equal("Ny titel", course.Title);
         Assert.Equal("Ny beskrivning", course.Description);
     }

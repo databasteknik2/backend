@@ -1,7 +1,6 @@
-﻿using Backend.Domain.Entities;
-using Backend.Application.Interfaces; 
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Backend.Domain.Entities;
 
 namespace Backend.Application.Interfaces;
 
@@ -14,6 +13,5 @@ public interface IApplicationDbContext
     DbSet<Enrollment> Enrollments { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
-
     Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
 }

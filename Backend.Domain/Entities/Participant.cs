@@ -20,5 +20,10 @@ public class Participant
         Email = email;
     }
 
+    public void UpdateEmail(string email)
+    {
+        Email = email;
+    }
+
     public string FullName => $"{FirstName} {LastName}";
 }
