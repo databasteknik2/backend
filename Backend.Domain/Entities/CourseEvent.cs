@@ -36,4 +36,13 @@ public class CourseEvent
         Location = location;
         Capacity = capacity;
     }
+
+    public void Update(DateTime startDate, DateTime endDate, string location, int capacity)
+    {
+        StartDate = startDate;
+        EndDate = endDate;
+        Location = location;
+        Capacity = capacity;
+    }
+
 }

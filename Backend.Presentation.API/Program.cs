@@ -1,11 +1,12 @@
+using Backend.Application.Dtos;
 using Backend.Application.Interfaces;
+using Backend.Application.Services;
 using Backend.Domain.Entities;
 using Backend.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 
 var builder = WebApplication.CreateBuilder(args);
-
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -18,8 +19,13 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddCors();
 
+builder.Services.AddScoped<CourseService>();
+builder.Services.AddScoped<CourseEventService>();
+
+
 var app = builder.Build();
 
+app.UseCors(x => x.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 
 if (app.Environment.IsDevelopment())
 {
@@ -28,7 +34,7 @@ if (app.Environment.IsDevelopment())
 
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureCreated();
+    db.Database.Migrate();
 
     if (!db.Courses.Any())
     {
@@ -44,41 +50,87 @@ if (app.Environment.IsDevelopment())
     }
 }
 
-app.UseCors(x => x.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
-
-
-app.MapGet("/api/courses", async (IApplicationDbContext db, IMemoryCache cache) =>
+app.MapGet("/api/courses", async (CourseService service) =>
 {
-    const string cacheKey = "course_list";
-    if (!cache.TryGetValue(cacheKey, out var courses))
-    {
-        courses = await db.Courses.AsNoTracking().ToListAsync();
-        cache.Set(cacheKey, courses, TimeSpan.FromMinutes(5));
-    }
+    var courses = await service.GetCoursesAsync();
     return Results.Ok(courses);
 });
 
+app.MapPost("/api/courses", async (CourseDto dto, CourseService service) =>
+{
+    var course = await service.CreateCourseAsync(dto);
+    return Results.Created($"/api/courses/{course.Id}", course);
+});
 
-app.MapPost("/api/enroll", async (int courseEventId, string email, string firstName, string lastName, IApplicationDbContext db) =>
+app.MapPut("/api/courses/{id}", async (int id, CourseDto dto, CourseService service) =>
+{
+    var updated = await service.UpdateCourseAsync(id, dto);
+    if (!updated) return Results.NotFound();
+    return Results.NoContent();
+});
+
+app.MapDelete("/api/courses/{id}", async (int id, CourseService service) =>
+{
+    var deleted = await service.DeleteCourseAsync(id);
+    if (!deleted) return Results.NotFound();
+    return Results.Ok($"Kursen {id} borttagen.");
+});
+
+
+app.MapGet("/api/courses/{courseId}/events", async (int courseId, CourseEventService service) =>
+{
+    var events = await service.GetCourseEventsByCourseIdAsync(courseId);
+    return Results.Ok(events);
+});
+
+
+app.MapGet("/api/courseevents", async (CourseEventService service) =>
+{
+    var events = await service.GetCourseEventsAsync();
+    return Results.Ok(events);
+});
+
+app.MapPost("/api/courseevents", async (int courseId, int teacherId, DateTime startDate, DateTime endDate, string location, int capacity, CourseEventService service) =>
+{
+    var courseEvent = await service.CreateCourseEventAsync(courseId, teacherId, startDate, endDate, location, capacity);
+    return Results.Created($"/api/courseevents/{courseEvent.Id}", courseEvent);
+});
+
+app.MapPut("/api/courseevents/{id}", async (int id, DateTime startDate, DateTime endDate, string location, int capacity, CourseEventService service) =>
+{
+    var updated = await service.UpdateCourseEventAsync(id, startDate, endDate, location, capacity);
+    if (!updated) return Results.NotFound();
+    return Results.NoContent();
+});
+
+app.MapDelete("/api/courseevents/{id}", async (int id, CourseEventService service) =>
+{
+    var deleted = await service.DeleteCourseEventAsync(id);
+    if (!deleted) return Results.NotFound();
+    return Results.Ok($"Kurstillfälle {id} borttaget.");
+});
+
+
+
+
+
+app.MapPost("/api/enroll", async (EnrollRequest request, IApplicationDbContext db) =>
 {
     using var transaction = await db.BeginTransactionAsync();
     try
     {
-        var courseEvent = await db.CourseEvents.FindAsync(courseEventId);
-        if (courseEvent == null)
-        {
-            return Results.NotFound("Kurstillfället hittades inte.");
-        }
+        var courseEvent = await db.CourseEvents.FindAsync(request.CourseEventId);
+        if (courseEvent == null) return Results.NotFound("Kurstillfället hittades inte.");
 
-        var participant = await db.Participants.FirstOrDefaultAsync(p => p.Email == email);
+        var participant = await db.Participants.FirstOrDefaultAsync(p => p.Email == request.Email);
         if (participant == null)
         {
-            participant = new Participant(firstName, lastName, email);
+            participant = new Participant(request.FirstName, request.LastName, request.Email);
             db.Participants.Add(participant);
             await db.SaveChangesAsync();
         }
 
-        var enrollment = new Enrollment(courseEventId, participant.Id);
+        var enrollment = new Enrollment(request.CourseEventId, participant.Id);
         db.Enrollments.Add(enrollment);
 
         await db.SaveChangesAsync();
@@ -94,34 +146,32 @@ app.MapPost("/api/enroll", async (int courseEventId, string email, string firstN
 });
 
 
-app.MapGet("/api/stats/gmail", async (IApplicationDbContext db) =>
+app.MapGet("/api/teachers", async (IApplicationDbContext db) =>
 {
-    
+    return Results.Ok(await db.Teachers.AsNoTracking().ToListAsync());
+});
+
+app.MapPost("/api/teachers", async (TeacherDto dto, IApplicationDbContext db) =>
+{
+    var teacher = new Teacher(dto.FirstName, dto.LastName, dto.Email);
+    db.Teachers.Add(teacher);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/teachers/{teacher.Id}", teacher);
+});
+
+
+app.MapGet("/api/participants", async (IApplicationDbContext db) =>
+{
+    return Results.Ok(await db.Participants.AsNoTracking().ToListAsync());
+});
+
+app.MapGet("/api/stats/gmail", async (AppDbContext db) =>
+{
     var count = await db.Participants
-        .FromSqlRaw("SELECT * FROM Participants WHERE Email LIKE '%@gmail.com%'")
+        .FromSqlRaw("SELECT * FROM Participants WHERE Email LIKE '%@gmail.com'")
         .CountAsync();
 
     return Results.Ok(new { GmailUsers = count });
-});
-
-app.MapPut("/api/courses/{id}", async (int id, string title, string description, IApplicationDbContext db) =>
-{
-    var course = await db.Courses.FindAsync(id);
-    if (course is null) return Results.NotFound();
-
-    course.Update(title, description);
-    await db.SaveChangesAsync();
-    return Results.NoContent();
-});
-
-app.MapDelete("/api/courses/{id}", async (int id, IApplicationDbContext db) =>
-{
-    var course = await db.Courses.FindAsync(id);
-    if (course is null) return Results.NotFound();
-
-    db.Courses.Remove(course);
-    await db.SaveChangesAsync();
-    return Results.Ok($"Kursen {id} borttagen.");
 });
 
 app.Run();
