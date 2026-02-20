@@ -23,7 +23,7 @@ Projektet är uppbyggt enligt principerna för **Domain-Driven Design (DDD)** oc
 
 1.  **Klona repot:**
     ```bash
-    git clone [din-github-url]
+    git clone https://github.com/databasteknik2/backend
     ```
 
 2.  **Gå till API-mappen:**
@@ -37,12 +37,13 @@ Projektet är uppbyggt enligt principerna för **Domain-Driven Design (DDD)** oc
     ```
 
 4.  **Öppna Swagger:**
-    När projektet körs, navigera till `http://localhost:[port]/swagger` för att se och testa alla endpoints.
+    När projektet körs, navigera till `http://localhost:5054/swagger/index.html` för att se och testa alla endpoints. 
 
 ## 🧪 Tester
 För att köra systemets tester (Unit & Integration):
 ```bash
 dotnet test
+```
 
 ## Databasmodell
 Systemet använder en normaliserad relationsdatabas (3NF) med följande huvudtabeller:
