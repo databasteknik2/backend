@@ -4,7 +4,6 @@ using Backend.Application.Services;
 using Backend.Domain.Entities;
 using Backend.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +20,8 @@ builder.Services.AddCors();
 
 builder.Services.AddScoped<CourseService>();
 builder.Services.AddScoped<CourseEventService>();
+
+builder.Services.AddScoped<TeacherService>();
 
 
 var app = builder.Build();
@@ -111,9 +112,6 @@ app.MapDelete("/api/courseevents/{id}", async (int id, CourseEventService servic
 });
 
 
-
-
-
 app.MapPost("/api/enroll", async (EnrollRequest request, IApplicationDbContext db) =>
 {
     using var transaction = await db.BeginTransactionAsync();
@@ -146,16 +144,14 @@ app.MapPost("/api/enroll", async (EnrollRequest request, IApplicationDbContext d
 });
 
 
-app.MapGet("/api/teachers", async (IApplicationDbContext db) =>
+app.MapGet("/api/teachers", async (TeacherService service) =>
 {
-    return Results.Ok(await db.Teachers.AsNoTracking().ToListAsync());
+    return Results.Ok(await service.GetTeachersAsync());
 });
 
-app.MapPost("/api/teachers", async (TeacherDto dto, IApplicationDbContext db) =>
+app.MapPost("/api/teachers", async (TeacherDto dto, TeacherService service) =>
 {
-    var teacher = new Teacher(dto.FirstName, dto.LastName, dto.Email);
-    db.Teachers.Add(teacher);
-    await db.SaveChangesAsync();
+    var teacher = await service.CreateTeacherAsync(dto);
     return Results.Created($"/api/teachers/{teacher.Id}", teacher);
 });
 
@@ -168,8 +164,7 @@ app.MapGet("/api/participants", async (IApplicationDbContext db) =>
 app.MapGet("/api/stats/gmail", async (AppDbContext db) =>
 {
     var count = await db.Participants
-        .FromSqlRaw("SELECT * FROM Participants WHERE Email LIKE '%@gmail.com'")
-        .CountAsync();
+    .CountAsync(p => p.Email.Contains("@gmail.com"));
 
     return Results.Ok(new { GmailUsers = count });
 });

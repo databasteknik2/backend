@@ -45,5 +45,9 @@ public class AppDbContext : DbContext, IApplicationDbContext
             .WithMany(c => c.Enrollments)
             .HasForeignKey(e => e.CourseEventId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Participant>()
+            .HasIndex(p => p.Email)
+            .IsUnique();
     }
 }
