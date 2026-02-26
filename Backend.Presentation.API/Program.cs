@@ -161,12 +161,9 @@ app.MapGet("/api/participants", async (IApplicationDbContext db) =>
     return Results.Ok(await db.Participants.AsNoTracking().ToListAsync());
 });
 
-app.MapGet("/api/stats/gmail", async (AppDbContext db) =>
-{
-    var count = await db.Participants
-    .CountAsync(p => p.Email.Contains("@gmail.com"));
-
-    return Results.Ok(new { GmailUsers = count });
-});
+app.MapGet("/api/stats/gmail", async 
+    (AppDbContext db) => { var count = await db.Participants.CountAsync(p => p.Email.Contains("@gmail.com")); 
+        
+  return Results.Ok(new { GmailUsers = count }); });
 
 app.Run();
